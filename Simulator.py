@@ -79,7 +79,7 @@ class Simulator:
             sublist.append(relay_points[i])
             trace_list = [(self, relay_points[0]), ] + [(self.drones[j], relay_points[j]) for j in range(i)] 
             self.drones[i].path = sublist
-            self.drones[i].relay_trace = list(reversed(trace_list)
+            self.drones[i].relay_trace = list(reversed(trace_list))
 
     def loop(self):
         Constants.global_sync_time = 0
