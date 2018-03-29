@@ -19,7 +19,6 @@ class Simulator:
 
         self.connected_drones = []
 
-
     def generate_relay(self, time):
         # Update allocation times
         for i, allocations in enumerate(self.allocations_list):
@@ -77,7 +76,7 @@ class Simulator:
             else:
                 sublist = self.allocations_list[i][index_first_not_completed: index + 1]
             sublist.append(relay_points[i])
-            trace_list = [(self, relay_points[0]), ] + [(self.drones[j], relay_points[j]) for j in range(i)] 
+            trace_list = [(self.drones[j], relay_points[j]) for j in range(i)] 
             self.drones[i].path = sublist
             self.drones[i].relay_trace = list(reversed(trace_list))
 
