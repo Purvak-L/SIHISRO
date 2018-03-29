@@ -2,9 +2,6 @@
 from Classes import *
 from Simulator import *
 from WebServer import *
-import threading
-import _thread
-from SimpleWebSocketServer import WebSocket, SimpleWebSocketServer, SimpleSSLWebSocketServer
 
 
 ## Main code
