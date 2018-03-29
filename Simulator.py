@@ -1,15 +1,22 @@
 # imports 
 import time
 from Classes import *
+from Network import *
 from Drone import *
 
 class Simulator:
     def __init__(self):
+        pass
+
+    def start(self):
+        # init drones
+        self.drones = [Drone(i) for i in range(Constants.num_drones)]
+
         Constants.renderer = MapRenderer(Constants.grid_dimension.x, Constants.grid_dimension.y)
+        Constants.network = NetworkLayer(self.drones, self)
 
         # First get blocks of image points and drones
         self.blocks = Utility.getGridBlocks()
-        self.drones = [Drone(i) for i in range(Constants.num_drones)]
 
         # Equally Distribute blocks in drones
         self.allocations_list = Utility.get_grid_distribution(self.blocks)
@@ -19,11 +26,13 @@ class Simulator:
 
         self.connected_drones = []
 
+        self.relay_points = []
+        self.blocks = []
 
     def generate_relay(self, time):
         # Update allocation times
         for i, allocations in enumerate(self.allocations_list):
-            Utility.set_estimated_time([block for block in allocations if block.completed == False], self.drones[i])
+            Utility.set_estimated_time([block for block in allocations if not block.completed], self.drones[i])
 
         # get nearest grid location for next time
         blocks = []
@@ -40,26 +49,55 @@ class Simulator:
         # get relay points
         relay_points = [Constants.server_loc, ]
 
+        # for i, block in enumerate(blocks):
+        #     # check if inside range
+        #     vec = block.loc.sub(relay_points[i])
+        #     mag = vec.abs()
+        #     if mag < drange:
+        #         #push it in y TODO change
+        #         relay_points.append(_get_intersection(block.loc, relay_points[i], drange))
+        #     else:
+        #         vec = Vector2D(vec.x / mag, vec.y / mag)
+        #         relay_points.append(Vector2D(relay_points[i].x + vec.x * drange,
+        #                                      relay_points[i].y + vec.y * drange))
+
+        # scaling of the relay points TODO
         for i, block in enumerate(blocks):
             # check if inside range
             vec = block.loc.sub(relay_points[i])
             mag = vec.abs()
             if mag < drange:
-                #push it in y TODO change
+                # push it in y
                 relay_points.append(_get_intersection(block.loc, relay_points[i], drange))
             else:
-                vec = Vector2D(vec.x / mag, vec.y / mag)
-                relay_points.append(Vector2D(relay_points[i].x + vec.x * drange, 
-                                             relay_points[i].y + vec.y * drange))
+                vec = vec.mul(1 / mag)
+                relay_points.append(vec.mul(drange).add(relay_points[i]))
 
-            # scaling of the relay points TODO
-            min_x = min([r.x for r in relay_points])
-            max_x = max([r.x for r in relay_points])
-            min_y = min([r.y for r in relay_points])
-            max_y = max([r.y for r in relay_points])
+        # scaling of the relay points
+        last_x = max(relay_points, key=lambda x: x.x).x
+        last_y = max(relay_points, key=lambda x: x.y).y
 
-            scale_x = max_x / Constants.grid_dimension.x
-            scale_y = max_y / Constants.grid_dimension.y
+        scale_x = 1
+        scale_y = 1
+
+        if last_x < 0 or last_x > Constants.grid_dimension.x:
+            if last_x < Constants.server_loc.x:
+                scale_x = abs(0 - Constants.server_loc.x) / abs(last_x - Constants.server_loc.x)
+            else:
+                scale_x = abs(Constants.grid_dimension.x - Constants.block_width / 2 - Constants.server_loc.x) / abs(
+                    last_x - Constants.server_loc.x)
+
+        if last_y < 0 or last_y > Constants.grid_dimension.y:
+            if last_y < Constants.server_loc.y:
+                scale_y = abs(0 - Constants.server_loc.y) / abs(last_y - Constants.server_loc.y)
+            else:
+                scale_y = abs(Constants.grid_dimension.y - Constants.block_height / 2 - Constants.server_loc.y) / abs(
+                    last_y - Constants.server_loc.y)
+
+        for j, relay_pt in enumerate(relay_points):
+            x = relay_pt.x * scale_x
+            y = relay_pt.y * scale_y
+            relay_points[j] = Vector2D(x, y)
 
             # for i, point in enumerate(relay_points):
             #     relay_points[i] = relay_points[i].mul(Vector2D(scale_x, scale_y))
@@ -77,7 +115,7 @@ class Simulator:
             else:
                 sublist = self.allocations_list[i][index_first_not_completed: index + 1]
             sublist.append(relay_points[i])
-            trace_list = [(self, relay_points[0]), ] + [(self.drones[j], relay_points[j]) for j in range(i)] 
+            trace_list = [relay_points[j] for j in range(i)]
             self.drones[i].path = sublist
             self.drones[i].relay_trace = list(reversed(trace_list))
 
@@ -87,9 +125,9 @@ class Simulator:
         time.sleep(0.1)
         f = True
         # generate relay points
-        relay_time = 20
-        blocks, relay = self.generate_relay(relay_time)
-        self.process_relay(blocks, relay, relay_time)
+        relay_time = Constants.relay_time
+        self.blocks, self.relay_points = self.generate_relay(relay_time)
+        self.process_relay(self.blocks, self.relay_points, relay_time)
 
         for drone in self.drones:
             drone.state = DroneState.MOVING
@@ -103,26 +141,43 @@ class Simulator:
                 Constants.renderer.render_grid(self.blocks)
                 f = False
 
-            # recompute relay
-            # if Constants.global_sync_time > relay_time:# test
-            #     relay_time += 20
-            #     blocks, relay = self.generate_relay(relay_time)
-            #     self.process_relay(blocks, relay, relay_time)
-
             # draw relay and gridpoints
-            Constants.renderer.render_points([[r.loc, (0, 0, 0)] for r in blocks])
-            Constants.renderer.render_points([[l, (255, 255, 255)] for l in relay])
+            Constants.renderer.render_points([[r.loc, (0, 0, 0)] for r in self.blocks])
+            Constants.renderer.render_points([[l, (255, 255, 255)] for l in self.relay_points])
 
             # update drones
             for drone in self.drones:
                 drone.update(dt)
             Constants.renderer.show()
 
+            # testing send info
+            if len(Constants.web_server_clients) > 0:
+                drone_locs = [d.loc for d in self.drones]
+                data = Utility.get_json_string("drones", drone_locs)
+                Constants.web_server_clients[-1].sendMessage(data.encode('utf-8'))
+
 
     # Network functions
-    def relay(self, drone_id):
+    def relay(self, drone_id, sender_id):
         drone = list(filter(lambda x: x.id == drone_id, self.drones))[0]
         drone.state = DroneState.UNDER_RELAY_CONNECTED
         self.connected_drones.append(drone)
 
-    
+        # Consider no drone dies #TODO Drone death XXX
+        if len(self.connected_drones) == Constants.num_drones:
+            # TODO Do some important work and commands and stuff
+
+            # Test
+            print("Waiting for relay work for no reason at all")
+            time.sleep(2)
+
+            # recompute relay
+            relay_time = Constants.global_sync_time + Constants.relay_time
+            self.blocks, self.relay_points = self.generate_relay(relay_time)
+            self.process_relay(self.blocks, self.relay_points, relay_time)
+
+            self.connected_drones = []
+
+            # continue
+            for drone in self.drones:
+                drone.state = DroneState.MOVING
