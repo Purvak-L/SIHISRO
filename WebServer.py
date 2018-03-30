@@ -110,20 +110,20 @@ class MyServerProtocol(WebSocketServerProtocol):
         Constants.web_server_clients.append(self)
 
         def sendMapData():
-            ENCODING = 'utf-8'
-            IMAGE_NAME = 'img.png'
-
-            with open(IMAGE_NAME, 'rb') as open_file:
-                byte_content = open_file.read()
-
-            base64_bytes = base64.b64encode(byte_content)
-
-            base64_string = base64_bytes.decode(ENCODING)
+            # ENCODING = 'utf-8'
+            # IMAGE_NAME = 'img.png'
+            #
+            # with open(IMAGE_NAME, 'rb') as open_file:
+            #     byte_content = open_file.read()
+            #
+            # base64_bytes = base64.b64encode(byte_content)
+            #
+            # base64_string = base64_bytes.decode(ENCODING)
 
             # modify this for changing image data
 
-            img_dic["img-data"] = base64_string
-            img_json_string = json.dumps(img_dic)
+            # img_dic["img-data"] = base64_string
+            # img_json_string = json.dumps(img_dic)
             # print img_dic
             # self.sendMessage(img_json_string.encode('utf8'))
             # self.sendMessage(drone_loc_json_string.encode('utf8'))

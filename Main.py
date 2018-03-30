@@ -15,7 +15,7 @@ import socket
 def bore():
     print("creating..")
     Constants.simulator = Simulator()
-    startClient()
+    # startClient()
     log.startLogging(sys.stdout)
     factory = WebSocketServerFactory(u"ws://127.0.0.1:50050")
     factory.protocol = MyServerProtocol
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     # bore()
     Constants.simulator = Simulator()
     Constants.simulator.start()
-    startClient()
+    # startClient()
     Constants.simulator.loop()
 # sim = Simulator()
 # sim.loop()

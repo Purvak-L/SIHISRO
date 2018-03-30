@@ -160,14 +160,16 @@ class Simulator:
         for drone in self.drones:
             if len(drone.path) > 1:
                 drone.state = DroneState.MOVING
-
+        wasted_dt = 0
         while True:
-            dt = time.time() - self.t1
+            dt = time.time() - self.t1 - wasted_dt/2
             self.t1 = time.time()
             Constants.global_sync_time += dt
             if f:
+                wasted_dt = time.time()
                 Constants.renderer.render_grid(self.blocks)
-                f = False
+                wasted_dt = time.time() - wasted_dt
+                #f = False
 
             # draw relay and gridpoints
             Constants.renderer.render_points([[r.loc, (0, 0, 0)] for r in self.near_blocks if not r is None])
@@ -177,13 +179,13 @@ class Simulator:
             for drone in self.drones:
                 drone.update(dt)
 
-            curr_t = time.time()
-            if curr_t - last_t > 5:
-                image_send = Constants.renderer.output.copy()
-                img = cv2.imencode(".jpg", image_send)[1]
-                img_str = img.tostring()
-                Constants.chat_client.sendall(img_str)
-                last_t = curr_t
+            # curr_t = time.time()
+            # if curr_t - last_t > 5:
+            #     image_send = Constants.renderer.output.copy()
+            #     img = cv2.imencode(".jpg", image_send)[1]
+            #     img_str = img.tostring()
+            #     # Constants.chat_client.sendall(img_str)
+            #     last_t = curr_t
 
             # Constants.flask_server.send(Constants.renderer.output)
             # image_send = Constants.renderer.output.copy()[:, :, [2, 1, 0]]
@@ -191,21 +193,19 @@ class Simulator:
             # print(Utility.get_json_string("bg-img", img=temp_img))
             # Constants.renderer.show()
             # # testing send info
-            # curr_t = time.time()
-            # if curr_t - last_t > 5:
-            #     if len(Constants.web_server_clients) > 0:
-            #         drone_locs = [d.loc for d in self.drones]
-            #         drone_data = Utility.get_json_string("drones", list_=drone_locs)
-            #         relay_data = Utility.get_json_string("relay", list_=self.relay_points, next_est_relay=Constants.next_relay_time, drones=self.drones)
-            #         grid_data = Utility.get_json_string("grid_data", list_=self.blocks)
-            #         img_data = Utility.get_json_string("bg-img", list_=temp_img)
-            #         # send data
-            #         # if Constants.global_sync_time % 2 == 0:
-            #         Constants.web_server_clients[-1].sendMessage(drone_data.encode('utf-8'))
-            #         Constants.web_server_clients[-1].sendMessage(relay_data.encode('utf-8'))
-            #         Constants.web_server_clients[-1].sendMessage(grid_data.encode('utf-8'))
-            #         Constants.web_server_clients[-1].sendMessage(img_data.encode('utf-8'))
-            #     curr_t = last_t
+            curr_t = time.time()
+            if curr_t - last_t > 5:
+                if len(Constants.web_server_clients) > 0:
+                    drone_locs = [d.loc for d in self.drones]
+                    drone_data = Utility.get_json_string("drones", list_=drone_locs)
+                    relay_data = Utility.get_json_string("relay", list_=self.relay_points, next_est_relay=Constants.next_relay_time, drones=self.drones)
+                    grid_data = Utility.get_json_string("grid_data", list_=self.blocks)
+                    # send data
+                    # if Constants.global_sync_time % 2 == 0:
+                    Constants.web_server_clients[-1].sendMessage(drone_data.encode('utf-8'))
+                    Constants.web_server_clients[-1].sendMessage(relay_data.encode('utf-8'))
+                    Constants.web_server_clients[-1].sendMessage(grid_data.encode('utf-8'))
+                last_t = curr_t
             Constants.renderer.show()
 
 

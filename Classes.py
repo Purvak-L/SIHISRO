@@ -42,7 +42,7 @@ class GridBlock:
         self.distance_from_server = self.loc.dist(Constants.server_loc)
         self.completed = False
         self.estimated_time = None
-        self.drone_id = None
+        self.drone_id = 1
 
     def __str__(self):
         return "{0},{1},{2},{3},{4}".format(self.index, self.loc, self.color, self.completed, self.allocated)
@@ -444,20 +444,20 @@ class Commands:
         Constants.overlap = float(overlap)
         Constants.time_of_flight = int(time_of_flight)
 
-        # calculate coordinates
-        for i, coord in enumerate(coordinates):
-            coordinates[i] = float(coord)
-
-        Constants.grid_dimension = Vector2D(coordinates[2] - coordinates[0], coordinates[3] - coordinates[1])
-        print("{0} {1}".format(Constants.grid_dimension.x, Constants.grid_dimension.y))
-
-        # standardize
-        top_left = Vector2D(coordinates[0], coordinates[3])
-        top_right = Vector2D(top_left.x + Constants.grid_dimension.x, top_left.y)
-        bottom_right = Vector2D(coordinates[2], coordinates[1])
-        bottom_left = Vector2D(bottom_right.x - Constants.grid_dimension.x, bottom_right.y)
-        Constants.coordinates = [bottom_left, top_left, top_right, bottom_right]
-        print(Constants.coordinates)
+        # # calculate coordinates
+        # for i, coord in enumerate(coordinates):
+        #     coordinates[i] = float(coord)
+        #
+        # Constants.grid_dimension = Vector2D(coordinates[2] - coordinates[0], coordinates[3] - coordinates[1])
+        # print("{0} {1}".format(Constants.grid_dimension.x, Constants.grid_dimension.y))
+        #
+        # # standardize
+        # top_left = Vector2D(coordinates[0], coordinates[3])
+        # top_right = Vector2D(top_left.x + Constants.grid_dimension.x, top_left.y)
+        # bottom_right = Vector2D(coordinates[2], coordinates[1])
+        # bottom_left = Vector2D(bottom_right.x - Constants.grid_dimension.x, bottom_right.y)
+        # Constants.coordinates = [bottom_left, top_left, top_right, bottom_right]
+        # print(Constants.coordinates)
 
         # set sim params
         Constants.simulator.start()
