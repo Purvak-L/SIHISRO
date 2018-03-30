@@ -52,8 +52,8 @@ class Constants:
     # Map Constants
     coordinates = [Vector2D(0, 0), Vector2D(0, 100), Vector2D(100, 100), Vector2D(100, 0)]
     overlap = .25
-    block_width = 20
-    block_height = 20
+    block_width = 10
+    block_height = 10
     grid_dimension = Vector2D(100, 100)
 
     # Locations
@@ -263,10 +263,17 @@ class Utility:
 
         for block in grid_blocks:
             for i in range(num_drones):
-                if (block.distance_from_server - min_dist)  < (i + 1) * mapping_range:
+                if (block.distance_from_server - min_dist) <= (i + 1) * mapping_range:
                     allocations[i].append(block)
+                    block.allocated = True
                     block.color = Constants.colors[i]
                     break
+        not_allocated = [block for block in grid_blocks if not block.allocated]
+
+        for block in not_allocated:
+            block.allocated = True
+            allocations[Constants.num_drones - 1].append(block)
+
         return allocations
 
     @staticmethod
