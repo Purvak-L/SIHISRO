@@ -49,16 +49,6 @@ class GridBlock:
 
 
 class Constants:
-    # Map Constants
-    coordinates = [Vector2D(0, 0), Vector2D(0, 100), Vector2D(100, 100), Vector2D(100, 0)]
-    overlap = .25
-    block_width = 10
-    block_height = 10
-    grid_dimension = Vector2D(100, 100)
-
-    # Locations
-    server_loc = Vector2D(50, 0)
-
     # Drone Constants
     time_of_flight = 200
     time_to_click = 2
@@ -67,8 +57,21 @@ class Constants:
     drone_range = 30
     original_num_drones = 5
     num_drones = original_num_drones
-    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255), 
+    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255),
         (215, 220, 55), (205, 100, 155), (155, 200, 255), (233, 12, 33), (123, 45, 111)]
+    height = 17.5 #17.5 # get as param
+    fov = 60
+
+    # Map Constants
+    coordinates = [Vector2D(0, 0), Vector2D(0, 100), Vector2D(100, 100), Vector2D(100, 0)]
+    overlap = .25
+    block_width = height * math.tan(fov / 2 * math.pi / 180)
+    block_height = height * math.tan(fov / 2 * math.pi / 180)
+    grid_dimension = Vector2D(100, 100)
+
+    # Locations
+    server_loc = Vector2D(50, 0)
+
 
     # Simulator
     simulator = None

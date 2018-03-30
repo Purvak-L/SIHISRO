@@ -160,7 +160,7 @@ class Simulator:
             Constants.global_sync_time += dt
             if f:
                 Constants.renderer.render_grid(self.blocks)
-                #f = False
+                f = False
 
             # draw relay and gridpoints
             Constants.renderer.render_points([[r.loc, (0, 0, 0)] for r in self.near_blocks if not r is None])
