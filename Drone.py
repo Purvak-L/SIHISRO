@@ -9,7 +9,9 @@ class DroneState(Enum):
     WAITING_AT_RELAY = 4,
     UNDER_RELAY_CONNECTED = 5,
     TRACING_BACK_RELAY = 6,
-    RTL = 7
+    RTL = 7,
+    COMPLETED_WAITING = 8
+
 
 class Drone:
     def __init__(self, drone_id):
@@ -18,6 +20,7 @@ class Drone:
         self.loc = Constants.server_loc
 
         self.path = []
+        self.path_copy = []
         self.curr_relay_wait_duration = 0
         self.relay_trace = None # [(drone, relaypt), ] last will be server, serverloc
 
@@ -61,6 +64,10 @@ class Drone:
             return False
 
     def update(self, dt):
+        # Test
+        if len([i for i in self.path if i.index == (-2, -2)]) == 2: # TODO fix
+            self.relay_trace.insert(0, self.path.pop())
+
         if self.state == DroneState.CLICKING_A_PICTURE:
             self.click_timer += dt
             if self.click_timer > Constants.time_to_click:
@@ -110,7 +117,7 @@ class Drone:
             if reached:
                 self.relay(self.id, self.id, True)
                 self.path.pop(0)
-                if len(self.relay_trace) ==0:
+                if len(self.relay_trace) == 0:
                     self.state = DroneState.RTL
                     self.path.append(GridBlock((-1, -1), Constants.server_loc, (0, 0, 0)))
                 else:

@@ -52,8 +52,8 @@ class Constants:
     # Map Constants
     coordinates = [Vector2D(0, 0), Vector2D(0, 100), Vector2D(100, 100), Vector2D(100, 0)]
     overlap = .25
-    block_width = 10
-    block_height = 10
+    block_width = 20
+    block_height = 20
     grid_dimension = Vector2D(100, 100)
 
     # Locations
@@ -98,6 +98,8 @@ class MapRenderer:
         self.output = None
         self.grid_layer = None #TODO Optimize drawing
         self.grid_list = []
+        cv2.namedWindow("map", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("map", 640, 480)
 
     def _set_map_image(self):
         self.map_image = cv2.imread(self.path)
