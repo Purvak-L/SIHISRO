@@ -1,7 +1,6 @@
 import math
 import cv2
-import numpy as np
-import base64
+
 
 class Vector2D:
     def __init__(self, x = 0, y = 0):
@@ -43,6 +42,7 @@ class GridBlock:
         self.distance_from_server = self.loc.dist(Constants.server_loc)
         self.completed = False
         self.estimated_time = None
+        self.drone_id = None
 
     def __str__(self):
         return "{0},{1},{2},{3},{4}".format(self.index, self.loc, self.color, self.completed, self.allocated)
@@ -73,6 +73,8 @@ class Constants:
     # Simulator
     simulator = None
     relay_time = 10
+    next_relay_time = relay_time
+    chat_client = None
 
     # Renderer
     renderer = None
@@ -98,9 +100,12 @@ class MapRenderer:
         self.output = None
         self.grid_layer = None #TODO Optimize drawing
         self.grid_list = []
+        cv2.namedWindow("map", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("map", 1280, 720)
 
     def _set_map_image(self):
         self.map_image = cv2.imread(self.path)
+        # self.map_image = cv2.resize(self.map_image, ())
 
     def show(self):
         if isinstance(self.output, type(None)):
@@ -108,6 +113,9 @@ class MapRenderer:
         cv2.waitKey(1)
         cv2.imshow("map", self.output)
         self.output = None
+
+    def close(self):
+        cv2.destroyAllWindows()
 
     def _draw_rect_on_map(self, x, y, w, h, color, alpha):
         x = x - w/2
@@ -146,7 +154,7 @@ class MapRenderer:
 
 class Utility:
     @staticmethod
-    def get_json_string(packet_type, list_, next_est_relay = 0):
+    def get_json_string(packet_type, list_ = None, img = None, next_est_relay = 0, drones = None):
         json_ = "{"
         if packet_type is "drones":
             json_ += "\"type\": \"drones\","
@@ -170,16 +178,17 @@ class Utility:
             json_ += "\"top_lat_long\": [{0},{1},{2},{3}],".format(0, 0, Constants.grid_dimension.x, Constants.grid_dimension.y)
             json_ += "\"blocks\": ["
             for i, grid_pt in enumerate(list_):
-                id = "{0}{1}".format(grid_pt.index.x, grid_pt.index.y)
+                id = "{0}{1}".format(grid_pt.index[0], grid_pt.index[1])
                 status = "not_explored"
                 if grid_pt.completed:
                     status = "explored"
                 if i < len(list_) - 1:
-                    str_ = "{{\"id\":\"{0}\",\"center\":[{1},{2},{3}],\"status\":\"{4}\",\"drone_id\":{5}}},".format(id, grid_pt.loc.x, grid_pt.loc.y, 0, status, grid_pt.drone_id)
+                    str_ = "{{\"id\":\"{0}\",\"centre\":[{1},{2},{3}],\"status\":\"{4}\",\"drone_id\":{5}}},".format(id, grid_pt.loc.x, grid_pt.loc.y, 0, status, grid_pt.drone_id)
                 else:
-                    str_ = "{{\"id\":\"{0}\",\"center\":[{1},{2},{3}],\"status\":\"{4}\",\"drone_id\":{5}}}".format(id, grid_pt.loc.x, grid_pt.lox.y, 0, status, grid_pt.drone_id)
+                    str_ = "{{\"id\":\"{0}\",\"centre\":[{1},{2},{3}],\"status\":\"{4}\",\"drone_id\":{5}}}".format(id, grid_pt.loc.x, grid_pt.loc.y, 0, status, grid_pt.drone_id)
                 json_ += str_
             json_ += "]}"
+            print(json_)
 
         elif packet_type is "relay":
             json_ += "\"type\": \"relay\","
@@ -188,33 +197,37 @@ class Utility:
             json_ += "\"relay_status\": \"complete\","
             json_ += "\"relay_points\": ["
             for i, relay_pt in enumerate(list_):
-                id = "{0}{1}".format(relay_pt.index[0],relay_pt.index[1])
-                connected = "[{0},{1}]".format(-1, id)
-                if 0 < i < (len(list_) - 1):
-                    last_id = "{0}{1}".format(list_[i-1].index[0],list_[i-1].index[1])
-                    connected = "[{0},{1}]".format(last_id, id)
-                else:
-                    connected = "[{0}]".format(id)
+                # id = "{0}{1}".format(relay_pt.index.x,relay_pt.index.y)
+                # next_id = "{0}{1}".format(list_[i+1].index.x, list_[i+1].index.y)
+                id = 10
+                connected = "[{0},{1}]".format(0, 0)
+                # if 0 < i < (len(list_) - 1):
+                #     last_id = "{0}{1}".format(list_[i-1].index.x, list_[i-1].index.y)
+                #     connected = "[{0},{1}]".format(last_id, id)
+                # else:
+                #     connected = "[{0}]".format(id)
 
                 if i < len(list_) - 1:
                     str_ = "{{\"id\":{0},\"loc\":[{0},{1},{2}],\"affiliated_drone\":{3},\"connected\":{4}," \
-                           "\"connected_status\":\"up\"}},".format(id, relay_pt.coordinate[0], relay_pt.coordinate[1], 0,
-                                                              relay_pt.drone_id, connected)
+                           "\"connected_status\":\"up\"}},".format(id, relay_pt.x, relay_pt.y, 0,
+                                                                   drones[i].id, connected)
                 else:
                     str_ = "{{\"id\":{0},\"loc\":[{0},{1},{2}],\"affiliated_drone\":{3},\"connected\":{4}," \
-                           "\"connected_status\":\"up\"}}".format(id, relay_pt.coordinate[0], relay_pt.coordinate[1], 0,
-                                                              relay_pt.drone_id, connected)
+                           "\"connected_status\":\"up\"}}".format(id, relay_pt.x, relay_pt.y, 0,
+                                                                  drones[i].id, connected)
                 json_ += str_
             json_ += "]}"
 
         elif packet_type == "bg-img":
-            if isinstance(list_, type(None)):
-                return
-            json_ += "\"type\": \"bg-img\","
-            encoded_string = base64.b64encode(list_)
-            print(encoded_string)
-            json_ += encoded_string
-            json_ += "}"
+            json_ += "\"type\": \"bg-img\", \"data\":\""
+            # pil_img = Image.fromarray(img)
+            # buff = BytesIO()
+            # pil_img.save(buff, format="JPEG")
+            # new_image_string = base64.b64encode(buff.getvalue()).decode("utf-8")
+            new_image_string = img.tostring()
+            new_image_string.decode("utf-8")
+            json_ += new_image_string
+            json_ += "\"}"
 
         return json_
 
@@ -385,6 +398,12 @@ class Utility:
             # render grid
             Constants.renderer.render_grid(pt_list_flattened)
             Constants.renderer.show()
+
+        # set drone id to grid blocks
+        for i, allocations in enumerate(allocations_list):
+            for block in allocations:
+                block.drone_id = drones[i].id
+
         print("Final")
         print("{0}".format([d.estimated_time for d in drones]))
         return allocations_list
@@ -403,3 +422,32 @@ class Utility:
         for drone in drone_list:
             print("Drone{0}, ETA,to,back: {1}".format(drone.id, drone.get_estimated_time()))
         return drone_list
+
+
+class Commands:
+
+    @staticmethod
+    def set_params(coordinates, level, max_height, overlap, num_of_drones, server_range, time_of_flight):
+        Constants.num_drones = int(num_of_drones)
+        Constants.drone_range = int(server_range)
+        Constants.overlap = float(overlap)
+        Constants.time_of_flight = int(time_of_flight)
+
+        # calculate coordinates
+        for i, coord in enumerate(coordinates):
+            coordinates[i] = float(coord)
+
+        Constants.grid_dimension = Vector2D(coordinates[2] - coordinates[0], coordinates[3] - coordinates[1])
+        print("{0} {1}".format(Constants.grid_dimension.x, Constants.grid_dimension.y))
+
+        # standardize
+        top_left = Vector2D(coordinates[0], coordinates[3])
+        top_right = Vector2D(top_left.x + Constants.grid_dimension.x, top_left.y)
+        bottom_right = Vector2D(coordinates[2], coordinates[1])
+        bottom_left = Vector2D(bottom_right.x - Constants.grid_dimension.x, bottom_right.y)
+        Constants.coordinates = [bottom_left, top_left, top_right, bottom_right]
+        print(Constants.coordinates)
+
+        # set sim params
+        Constants.simulator.start()
+        Constants.web_server_clients[-1].sendMessage('{"type":"ready"}'.encode('utf-8'))
