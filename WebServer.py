@@ -1,9 +1,4 @@
 from autobahn.twisted.websocket import WebSocketServerProtocol, WebSocketServerFactory
-from twisted.python import log
-from twisted.internet import reactor
-from random import randint
-import base64
-import sys
 import json
 from Classes import *
 import _thread
@@ -145,21 +140,22 @@ class MyServerProtocol(WebSocketServerProtocol):
             print("Binary message received: {} bytes".format(len(payload)))
         else:
             def start_sim():
-                Constants.simulator.start()
                 Constants.simulator.loop()
-            _thread.start_new_thread(start_sim, ())
+
+            # get parameters from GUI
             data_from_dash = json.loads(payload.decode('utf8'))
-            if (data_from_dash['type'] == 'sim_params'):
+            if data_from_dash['type'] == 'sim_params':
                 print("level: ", data_from_dash['level'])
                 print("height: ", data_from_dash['height'])
                 print("Overlap(%): ", data_from_dash['overlap'])
                 print("no_drones: ", data_from_dash['swarm'][0])
                 print("comm_range: ", data_from_dash['swarm'][1])
-                print("server_range: ", data_from_dash['swarm'][2])
+                Commands.set_params(data_from_dash['select_coords'], data_from_dash['level'], data_from_dash[
+                    'height'], data_from_dash['overlap'], data_from_dash['swarm'][0], data_from_dash['swarm'][1], data_from_dash['swarm'][2])
 
+            elif data_from_dash['type'] == 'start':
+                _thread.start_new_thread(start_sim, ())
 
-                # print("Text message received: {}".format(payload.decode('utf8')))
-        # echo back message verbatim
         self.sendMessage(payload, isBinary)
 
     def onClose(self, wasClean, code, reason):
