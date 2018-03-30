@@ -1,6 +1,7 @@
 import math
 import cv2
 import numpy as np
+import base64
 
 class Vector2D:
     def __init__(self, x = 0, y = 0):
@@ -32,6 +33,7 @@ class Vector2D:
         mag = self.abs()
         return Vector2D(self.x/mag, self.y/mag)
 
+
 class GridBlock:
     def __init__(self, index, loc, color):
         self.index = index
@@ -47,32 +49,45 @@ class GridBlock:
 
 
 class Constants:
+    # Drone Constants
+    time_of_flight = 200
+    time_to_click = 2
+    relay_wait_duration = 2
+    velocity = 30
+    drone_range = 30
+    original_num_drones = 5
+    num_drones = original_num_drones
+    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255),
+        (215, 220, 55), (205, 100, 155), (155, 200, 255), (233, 12, 33), (123, 45, 111)]
+    height = 17.5 #17.5 # get as param
+    fov = 60
+
     # Map Constants
     coordinates = [Vector2D(0, 0), Vector2D(0, 100), Vector2D(100, 100), Vector2D(100, 0)]
     overlap = .25
-    block_width = 10
-    block_height = 10
+    block_width = height * math.tan(fov / 2 * math.pi / 180)
+    block_height = height * math.tan(fov / 2 * math.pi / 180)
     grid_dimension = Vector2D(100, 100)
 
     # Locations
     server_loc = Vector2D(50, 0)
 
-    # Drone Constants
-    time_of_flight = 200
-    time_to_click = 2
-    relay_wait_duration = 10
-    velocity = 30
-    drone_range = 30
-    original_num_drones = 5
-    num_drones = original_num_drones
-    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255), 
-        (215, 220, 55), (205, 100, 155), (155, 200, 255), (233, 12, 33), (123, 45, 111)]
-    
+
+    # Simulator
+    simulator = None
+    relay_time = 10
+
     # Renderer
     renderer = None
 
+    # enviroment
+    network = None
+
     # Time
     global_sync_time = 0
+
+    # flag for sending data to website
+    web_server_clients = []
 
 
 class MapRenderer:
@@ -86,6 +101,8 @@ class MapRenderer:
         self.output = None
         self.grid_layer = None #TODO Optimize drawing
         self.grid_list = []
+        cv2.namedWindow("map", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("map", 640, 480)
 
     def _set_map_image(self):
         self.map_image = cv2.imread(self.path)
@@ -134,6 +151,79 @@ class MapRenderer:
 
 class Utility:
     @staticmethod
+    def get_json_string(packet_type, list_, next_est_relay = 0):
+        json_ = "{"
+        if packet_type is "drones":
+            json_ += "\"type\": \"drones\","
+            json_ += "\"drones\": ["
+            for i, loc in enumerate(list_):
+                x = loc.x
+                y = loc.y
+                z = 200
+                if i < len(list_) - 1:
+                    str_ = "{{\"id\":\"{0}\",\"est_loc\":[{1},{2},{3}],\"conn_status\":\"connected\"," \
+                           "\"timestamp\":1}},".format(i+1, x, y, z)
+                else:
+                    str_ = "{{\"id\":\"{0}\",\"est_loc\":[{1},{2},{3}],\"conn_status\":\"connected\",\"timestamp\": " \
+                           "1234}}".format(i + 1, x, y, z)
+                json_ += str_
+            json_ += "]}"
+
+        elif packet_type is "grid_data":
+            json_ += "\"type\": \"grid_data\","
+            json_ += "\"dim\": [{0},{1}],".format(Constants.block_height, Constants.block_width)
+            json_ += "\"top_lat_long\": [{0},{1},{2},{3}],".format(0, 0, Constants.grid_dimension.x, Constants.grid_dimension.y)
+            json_ += "\"blocks\": ["
+            for i, grid_pt in enumerate(list_):
+                id = "{0}{1}".format(grid_pt.index.x, grid_pt.index.y)
+                status = "not_explored"
+                if grid_pt.completed:
+                    status = "explored"
+                if i < len(list_) - 1:
+                    str_ = "{{\"id\":\"{0}\",\"center\":[{1},{2},{3}],\"status\":\"{4}\",\"drone_id\":{5}}},".format(id, grid_pt.loc.x, grid_pt.loc.y, 0, status, grid_pt.drone_id)
+                else:
+                    str_ = "{{\"id\":\"{0}\",\"center\":[{1},{2},{3}],\"status\":\"{4}\",\"drone_id\":{5}}}".format(id, grid_pt.loc.x, grid_pt.lox.y, 0, status, grid_pt.drone_id)
+                json_ += str_
+            json_ += "]}"
+
+        elif packet_type is "relay":
+            json_ += "\"type\": \"relay\","
+            json_ += "\"n_relay\": {0},".format(len(list_))
+            json_ += "\"next_relay_est_time\":{0},".format(next_est_relay)
+            json_ += "\"relay_status\": \"complete\","
+            json_ += "\"relay_points\": ["
+            for i, relay_pt in enumerate(list_):
+                id = "{0}{1}".format(relay_pt.index[0],relay_pt.index[1])
+                connected = "[{0},{1}]".format(-1, id)
+                if 0 < i < (len(list_) - 1):
+                    last_id = "{0}{1}".format(list_[i-1].index[0],list_[i-1].index[1])
+                    connected = "[{0},{1}]".format(last_id, id)
+                else:
+                    connected = "[{0}]".format(id)
+
+                if i < len(list_) - 1:
+                    str_ = "{{\"id\":{0},\"loc\":[{0},{1},{2}],\"affiliated_drone\":{3},\"connected\":{4}," \
+                           "\"connected_status\":\"up\"}},".format(id, relay_pt.coordinate[0], relay_pt.coordinate[1], 0,
+                                                              relay_pt.drone_id, connected)
+                else:
+                    str_ = "{{\"id\":{0},\"loc\":[{0},{1},{2}],\"affiliated_drone\":{3},\"connected\":{4}," \
+                           "\"connected_status\":\"up\"}}".format(id, relay_pt.coordinate[0], relay_pt.coordinate[1], 0,
+                                                              relay_pt.drone_id, connected)
+                json_ += str_
+            json_ += "]}"
+
+        elif packet_type == "bg-img":
+            if isinstance(list_, type(None)):
+                return
+            json_ += "\"type\": \"bg-img\","
+            encoded_string = base64.b64encode(list_)
+            print(encoded_string)
+            json_ += encoded_string
+            json_ += "}"
+
+        return json_
+
+    @staticmethod
     def getGridBlocks(coordinates = Constants.coordinates, overlap = Constants.overlap, 
             block_width = Constants.block_width, block_height = Constants.block_height):
         # get length and breadth of the rectangle
@@ -176,10 +266,17 @@ class Utility:
 
         for block in grid_blocks:
             for i in range(num_drones):
-                if (block.distance_from_server - min_dist)  < (i + 1) * mapping_range:
+                if (block.distance_from_server - min_dist) <= (i + 1) * mapping_range:
                     allocations[i].append(block)
+                    block.allocated = True
                     block.color = Constants.colors[i]
                     break
+        not_allocated = [block for block in grid_blocks if not block.allocated]
+
+        for block in not_allocated:
+            block.allocated = True
+            allocations[Constants.num_drones - 1].append(block)
+
         return allocations
 
     @staticmethod
