@@ -128,4 +128,4 @@ class Drone:
                 print("Drone {0} Returned to Launch".format(self.id))
                 self.state = DroneState.WAITING
         # Render
-        Constants.renderer.render_points([[self.loc, self.color], ])
+        Constants.renderer.render_points([[self.loc, self.color], ], Constants.drone_range)

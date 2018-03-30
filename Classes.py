@@ -54,7 +54,7 @@ class Constants:
     time_to_click = 2
     relay_wait_duration = 2
     velocity = 30
-    drone_range = 30
+    drone_range = 20
     original_num_drones = 5
     num_drones = original_num_drones
     colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255),
@@ -143,9 +143,9 @@ class MapRenderer:
             self._draw_rect_on_map(block.loc.x, block.loc.y, w, h, 
                 block.color, 0.6 if block.completed else 0.2)
 
-    def render_points(self, point_list):
+    def render_points(self, point_list, range_=None):
         """
-        point_list is List of list, containg x,y, color where color is in the form (0,0,0)
+        point_list is List of list, containing x,y, color where color is in the form (0,0,0)
         """
         (height, width, channel) = self.map_image.shape
         self.width_ratio = width / float(self.map_width)
@@ -153,8 +153,11 @@ class MapRenderer:
         if isinstance(self.output, type(None)):
             self.output = self.map_image.copy()
         for point, color in point_list:
+            cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), 5, (0, 0, 0), 4)
             cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), 3, color, 3)
-
+            if not isinstance(range_, type(None)):
+                cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), int(range_
+                           * self.width_ratio), (0, 255, 0), 1)
 
 class Utility:
     @staticmethod
