@@ -37,7 +37,7 @@ if __name__ == '__main__':
     # bore()
     Constants.simulator = Simulator()
     Constants.simulator.start()
-    startClient()
+    #startClient()
     Constants.simulator.loop()
 # sim = Simulator()
 # sim.loop()
