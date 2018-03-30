@@ -343,6 +343,8 @@ class Utility:
     @staticmethod
     def shuffle_distribution(allocations_list, drones):
 
+        n_original_allocs = sum([len(s) for s in allocations_list])
+
         for i, allocations in enumerate(allocations_list):
             Utility.set_estimated_time(allocations, drones[i])
         
@@ -369,14 +371,14 @@ class Utility:
                         #       len(sorted_allocations_list[i - 1]), len(sorted_allocations_list[i])))
                         sorted_allocations_list[i - 1] = prev_locs[:-int(num_extra_blocks / 2)]
                         curr_drone_locations = sorted_allocations_list[i]
-                        take += curr_drone_locations # keep it sorted
+                        curr_drone_locations += take # keep it sorted
                         sorted_allocations_list[i] = curr_drone_locations
                         # update allocations
                         allocations_list[i - 1] = Utility.arrange_grid(sorted_allocations_list[i - 1])
                         Utility.set_estimated_time(allocations_list[i - 1], drones[i - 1])
-                        # update colors 
-                        for block in allocations_list[i - 1]:
-                            block.color = Constants.colors[i - 1]
+                        # # update colors
+                        # for block in allocations_list[i - 1]:
+                        #     block.color = Constants.colors[i - 1]
                     else:
                         next_locs = sorted_allocations_list[i + 1]
                         num_extra_blocks = int((time_next - drone.estimated_time) // drones[i + 1].avg_time)
@@ -387,16 +389,18 @@ class Utility:
                         #       len(sorted_allocations_list[i + 1]), len(sorted_allocations_list[i])))
                         sorted_allocations_list[i + 1] = next_locs[int(num_extra_blocks / 2):]
                         curr_drone_locations = sorted_allocations_list[i]
-                        curr_drone_locations += take # keep it sorted
+                        sorted_allocations_list[i] = curr_drone_locations + take # keep it sorted
                         # update allocations
                         allocations_list[i + 1] = Utility.arrange_grid(sorted_allocations_list[i + 1])
                         Utility.set_estimated_time(allocations_list[i + 1], drones[i + 1])
-                        # update colors 
-                        for block in allocations_list[i + 1]:
-                            block.color = Constants.colors[i + 1]
+                        # # update colors
+                        # for block in allocations_list[i + 1]:
+                        #     block.color = Constants.colors[i + 1]
                     # update current drone allocations
                     allocations_list[i] = Utility.arrange_grid(sorted_allocations_list[i])
                     Utility.set_estimated_time(allocations_list[i], drones[i])
+                    n_later = sum([len(s) for s in allocations_list])
+                    z = 1
                     # update colors 
                     for block in allocations_list[i]:
                         block.color = Constants.colors[i]
@@ -411,9 +415,9 @@ class Utility:
             Constants.renderer.show()
 
         # set drone id to grid blocks
-        for i, allocations in enumerate(allocations_list):
-            for block in allocations:
-                block.drone_id = drones[i].id
+        # for i, allocations in enumerate(allocations_list):
+        #     for block in allocations:
+        #         block.drone_id = drones[i].id
 
         print("Final")
         print("{0}".format([d.estimated_time for d in drones]))
