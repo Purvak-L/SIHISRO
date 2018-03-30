@@ -6,7 +6,7 @@ from io import BytesIO
 from Classes import *
 from Network import *
 from Drone import *
-from PIL import Image
+#from PIL import Image
 
 class Simulator:
     def __init__(self):
@@ -161,13 +161,17 @@ class Simulator:
             if len(drone.path) > 1:
                 drone.state = DroneState.MOVING
 
+        wasted_dt = 0
         while True:
-            dt = time.time() - self.t1
+            dt = time.time() - self.t1 #- wasted_dt/2
             self.t1 = time.time()
             Constants.global_sync_time += dt
+
             if f:
+                wasted_dt = time.time()
                 Constants.renderer.render_grid(self.blocks)
-                f = False
+                wasted_dt = time.time() - wasted_dt
+                #f = False
 
             # draw relay and gridpoints
             Constants.renderer.render_points([[r.loc, (0, 0, 0)] for r in self.near_blocks if not r is None])
@@ -182,7 +186,7 @@ class Simulator:
                 image_send = Constants.renderer.output.copy()
                 img = cv2.imencode(".jpg", image_send)[1]
                 img_str = img.tostring()
-                Constants.chat_client.sendall(img_str)
+                #Constants.chat_client.sendall(img_str)
                 last_t = curr_t
 
             # Constants.flask_server.send(Constants.renderer.output)
