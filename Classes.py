@@ -51,9 +51,9 @@ class GridBlock:
 class Constants:
     # Drone Constants
     time_of_flight = 200
-    time_to_click = 2
+    time_to_click = 3
     relay_wait_duration = 2
-    velocity = 30
+    velocity = 15
     drone_range = 20
     original_num_drones = 5
     num_drones = original_num_drones
@@ -68,6 +68,7 @@ class Constants:
     block_width = height * math.tan(fov / 2 * math.pi / 180)
     block_height = height * math.tan(fov / 2 * math.pi / 180)
     grid_dimension = Vector2D(100, 100)
+    crop_params = None
 
     # Locations
     server_loc = Vector2D(50, 0)
@@ -105,11 +106,17 @@ class MapRenderer:
         self.grid_layer = None #TODO Optimize drawing
         self.grid_list = []
         cv2.namedWindow("map", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("map", 700, 700)
-        #cv2.resizeWindow("map", 1280, 720)
+        # cv2.resizeWindow("map", 700, 700)
+        # cv2.resizeWindow("map", 1280, 720)
 
     def _set_map_image(self):
         self.map_image = cv2.imread(self.path)
+        # if not isinstance(Constants.crop_params, type(None)):
+        #     x1 = int((938 // 600) * Constants.crop_params[0])
+        #     x2 = int((938 // 600) * Constants.crop_params[2])
+        #     y1 = int((903 // 600) * Constants.crop_params[1])
+        #     y2 = int((903 // 600) * Constants.crop_params[3])
+        #     self.map_image = self.map_image[int(x1 - Constants.crop_params[0]):int(x2 - Constants.crop_params[2]), int(y1 - Constants.crop_params[1]): int(y2 - Constants.crop_params[3])]
         # self.map_image = cv2.resize(self.map_image, ())
 
     def show(self):
@@ -483,6 +490,7 @@ class Commands:
         Constants.drone_range = int(server_range)
         Constants.overlap = float(overlap)
         Constants.time_of_flight = int(time_of_flight)
+        Constants.crop_params = coordinates
 
         # # calculate coordinates
         # for i, coord in enumerate(coordinates):

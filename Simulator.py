@@ -36,7 +36,19 @@ class Simulator:
         self.near_blocks = []
         self.empty_allocations = []
 
+        if len(Constants.web_server_clients) > 0:
+            self.send_estimated_params()
+
         #Constants.renderer.close()
+
+    def send_estimated_params(self):
+        # get estimated times
+        str_est_time = '['
+        for drone in self.drones:
+            str_est_time += '{0},'.format(drone.estimated_time)
+        str_est_time = str_est_time.rsplit(',', 1)[0]
+        str_est_time += ']'
+        Constants.web_server_clients[-1].sendMessage('{{"type":"flight_times", "flight_times":"{0}"}}'.format(str_est_time).encode('utf-8'))
 
     def generate_relay(self, time):
         self.empty_allocations = []
@@ -194,13 +206,14 @@ class Simulator:
             #     last_t = curr_t
 
             # Constants.flask_server.send(Constants.renderer.output)
-            # image_send = Constants.renderer.output.copy()[:, :, [2, 1, 0]]
+            image_send = Constants.renderer.output.copy()
+            image_send = cv2.resize(image_send, (480, 360))
             # temp_img = cv2.imencode(".png", image_send)[1]
             # print(Utility.get_json_string("bg-img", img=temp_img))
             # Constants.renderer.show()
             # # testing send info
             curr_t = time.time()
-            if curr_t - last_t > 5:
+            if curr_t - last_t > 2:
                 if len(Constants.web_server_clients) > 0:
                     drone_locs = [d.loc for d in self.drones]
                     drone_data = Utility.get_json_string("drones", list_=drone_locs)
@@ -211,6 +224,11 @@ class Simulator:
                     Constants.web_server_clients[-1].sendMessage(drone_data.encode('utf-8'))
                     Constants.web_server_clients[-1].sendMessage(relay_data.encode('utf-8'))
                     Constants.web_server_clients[-1].sendMessage(grid_data.encode('utf-8'))
+
+                # send image
+                img_enc = cv2.imencode(".png", image_send)[1]
+                if not isinstance(Constants.flask_client, type(None)):
+                    Constants.flask_client.sendall(img_enc);
                 last_t = curr_t
             Constants.renderer.show()
 

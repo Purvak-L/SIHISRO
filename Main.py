@@ -15,12 +15,12 @@ import socket
 def bore():
     print("creating..")
     Constants.simulator = Simulator()
-    # startClient()
+    startClient()
     startUnityClient()
     log.startLogging(sys.stdout)
-    factory = WebSocketServerFactory(u"ws://127.0.0.1:50001")
+    factory = WebSocketServerFactory(u"ws://127.0.0.1:50090")
     factory.protocol = MyServerProtocol
-    reactor.listenTCP(50001, factory)
+    reactor.listenTCP(50090, factory)
     reactor.run()
     # p.join()
 
