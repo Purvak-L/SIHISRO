@@ -104,7 +104,7 @@ class MapRenderer:
         self.grid_layer = None #TODO Optimize drawing
         self.grid_list = []
         cv2.namedWindow("map", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("map", 640, 480)
+        cv2.resizeWindow("map", 700, 700)
         #cv2.resizeWindow("map", 1280, 720)
 
     def _set_map_image(self):
@@ -131,19 +131,39 @@ class MapRenderer:
                       (int((x + w) * self.width_ratio), int((y + h) * self.height_ratio)), color, -1)
         cv2.addWeighted(overlay, alpha, self.output, 1 - alpha, 0, self.output)
 
+    def _draw_rect_on_map_optimized(self, block_list, w, h, alpha):
+        if isinstance(self.output, type(None)):
+            self.output = self.map_image.copy()
+        overlay = self.output.copy()
+        for block in block_list:
+            x = block.loc.x - w / 2
+            y = block.loc.y - h / 2
+            cv2.rectangle(overlay, (int(x * self.width_ratio), int(y * self.height_ratio)),
+                      (int((x + w) * self.width_ratio), int((y + h) * self.height_ratio)), block.color, -1)
+        cv2.addWeighted(overlay, alpha, self.output, 1 - alpha, 0, self.output)
+        self.grid_layer = self.output.copy()
+
     def render_grid(self, grid_blocks, w = Constants.block_width, h = Constants.block_height):
 
         if isinstance(self.map_image, type(None)):
             self._set_map_image()
 
+        completed_blocks = []
+        incomplete_blocks = []
+
         (height, width, channel) = self.map_image.shape
         self.width_ratio = width / float(self.map_width)
         self.height_ratio = height / float(self.map_height)
         for block in grid_blocks:
-            self._draw_rect_on_map(block.loc.x, block.loc.y, w, h, 
-                block.color, 0.6 if block.completed else 0.2)
+            if block.completed:
+                completed_blocks.append(block)
+            else:
+                incomplete_blocks.append(block)
 
-    def render_points(self, point_list, range_=None):
+        self._draw_rect_on_map_optimized(completed_blocks, w, h, 0.6)
+        self._draw_rect_on_map_optimized(incomplete_blocks, w, h, 0.2)
+
+    def render_points(self, point_list, range_=None, connected=False):
         """
         point_list is List of list, containing x,y, color where color is in the form (0,0,0)
         """
@@ -153,11 +173,23 @@ class MapRenderer:
         if isinstance(self.output, type(None)):
             self.output = self.map_image.copy()
         for point, color in point_list:
+            if connected:
+                cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), 8,
+                           (0, 255, 0), 8)
             cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), 5, (0, 0, 0), 4)
             cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), 3, color, 3)
             if not isinstance(range_, type(None)):
                 cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), int(range_
                            * self.width_ratio), (0, 255, 0), 1)
+
+    def draw_connection_line(self, pt1, pt2):
+        (height, width, channel) = self.map_image.shape
+        self.width_ratio = width / float(self.map_width)
+        self.height_ratio = height / float(self.map_height)
+        if isinstance(self.output, type(None)):
+            self.output = self.map_image.copy()
+        cv2.line(self.output, (int(pt1.x * self.width_ratio), int(pt1.y * self.height_ratio)),
+                 (int(pt2.x * self.width_ratio), int(pt2.y * self.height_ratio)), (0, 255, 0), 3)
 
 class Utility:
     @staticmethod

@@ -29,12 +29,14 @@ class Simulator:
         self.allocations_list = Utility.shuffle_distribution(self.allocations_list, self.drones)
 
         self.connected_drones = []
+        self.all_connected = False
+        self.all_connected_time = None
 
         self.relay_points = []
         self.near_blocks = []
         self.empty_allocations = []
 
-        Constants.renderer.close()
+        #Constants.renderer.close()
 
     def generate_relay(self, time):
         self.empty_allocations = []
@@ -177,6 +179,8 @@ class Simulator:
             Constants.renderer.render_points([[r.loc, (0, 0, 0)] for r in self.near_blocks if not r is None])
             Constants.renderer.render_points([[l, (255, 255, 255)] for l in self.relay_points if not l is None])
 
+
+
             # update drones
             for drone in self.drones:
                 drone.update(dt)
@@ -212,6 +216,42 @@ class Simulator:
             #     curr_t = last_t
             Constants.renderer.show()
 
+            # after drawing process relay
+            if self.all_connected:
+                self.process_relay_all_connected()
+
+    def process_relay_all_connected(self):
+        # Consider no drone dies #TODO Drone death XXX
+        if not self.all_connected:
+            return
+        # TODO Do some important work and commands and stuff
+
+        # Test
+        print("Waiting for 2 at relay work for no reason at all")
+        if Constants.global_sync_time - self.all_connected_time < 2:
+            return
+        # recompute relay
+        relay_time = Constants.global_sync_time + Constants.relay_time
+        Constants.next_relay_time = relay_time
+        try:
+            self.near_blocks, self.relay_points = self.generate_relay(relay_time)
+            self.process_relay(self.near_blocks, self.relay_points, relay_time)
+        except ValueError:
+            for dr in self.drones:
+                dr.path = [GridBlock(Vector2D(-1, -1), Constants.server_loc, (0, 0, 0)), ]
+                dr.state = DroneState.RTL
+                self.relay_points = []
+                self.near_blocks = []
+                self.connected_drones = []
+            return
+
+        self.connected_drones = []
+        self.all_connected = False
+
+        # continue
+        for drone in self.drones:
+            if len(drone.path) > 1:
+                drone.state = DroneState.MOVING
 
     # Network functions
     def relay(self, drone_id, sender_id):
@@ -223,32 +263,6 @@ class Simulator:
                 if not d in self.connected_drones:
                     self.connected_drones.append(d)
 
-        # Consider no drone dies #TODO Drone death XXX
         if len(self.connected_drones) == Constants.num_drones:
-            # TODO Do some important work and commands and stuff
-
-            # Test
-            print("Waiting for relay work for no reason at all")
-            time.sleep(2)
-            dt = time.time() - self.t1
-            Constants.global_sync_time += dt
-            self.t1 = time.time()
-            # recompute relay
-            relay_time = Constants.global_sync_time + Constants.relay_time
-            Constants.next_relay_time = relay_time
-            try:
-                self.near_blocks, self.relay_points = self.generate_relay(relay_time)
-                self.process_relay(self.near_blocks, self.relay_points, relay_time)
-            except ValueError:
-                for dr in self.drones:
-                    dr.path = [GridBlock(Vector2D(-1, -1), Constants.server_loc, (0, 0, 0)), ]
-                    dr.state = DroneState.RTL
-                    self.connected_drones = []
-                return
-
-            self.connected_drones = []
-
-            # continue
-            for drone in self.drones:
-                if len(drone.path) > 1:
-                    drone.state = DroneState.MOVING
+            self.all_connected = True
+            self.all_connected_time = Constants.global_sync_time
