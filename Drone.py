@@ -33,6 +33,8 @@ class Drone:
         self.travel_back = None
         self.avg_time = None
 
+        self.alive = True
+
     def __str__(self):
         return "Drone {0} {1} {2}".format(self.id, self.loc, self.state)
 
@@ -127,6 +129,7 @@ class Drone:
                 self.state = DroneState.WAITING_AT_RELAY
         elif self.state == DroneState.TRACING_BACK_RELAY:
             reached = self._move(dt)
+            self.relay(self.id, self.id, True)
             if reached:
                 self.relay(self.id, self.id, True)
                 self.path.pop(0)
@@ -139,6 +142,10 @@ class Drone:
             reached = self._move(dt)
             if reached:
                 print("Drone {0} Returned to Launch".format(self.id))
+                self.path.pop(0)
                 self.state = DroneState.WAITING
         # Render
-        Constants.renderer.render_points([[self.loc, self.color], ])
+        if self.state == DroneState.UNDER_RELAY_CONNECTED:
+            Constants.renderer.draw_connection_line(self.loc, self.relay_trace[0].loc if len(self.relay_trace) > 0 else Constants.server_loc)
+        Constants.renderer.render_points([[self.loc, self.color], ], Constants.drone_range,
+                                            True if self.state == DroneState.UNDER_RELAY_CONNECTED else False)

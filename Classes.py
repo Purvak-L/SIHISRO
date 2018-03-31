@@ -54,7 +54,7 @@ class Constants:
     time_to_click = 2
     relay_wait_duration = 2
     velocity = 30
-    drone_range = 30
+    drone_range = 20
     original_num_drones = 5
     num_drones = original_num_drones
     colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255),
@@ -105,7 +105,7 @@ class MapRenderer:
         self.grid_layer = None #TODO Optimize drawing
         self.grid_list = []
         cv2.namedWindow("map", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("map", 640, 480)
+        cv2.resizeWindow("map", 700, 700)
         #cv2.resizeWindow("map", 1280, 720)
 
     def _set_map_image(self):
@@ -132,21 +132,41 @@ class MapRenderer:
                       (int((x + w) * self.width_ratio), int((y + h) * self.height_ratio)), color, -1)
         cv2.addWeighted(overlay, alpha, self.output, 1 - alpha, 0, self.output)
 
+    def _draw_rect_on_map_optimized(self, block_list, w, h, alpha):
+        if isinstance(self.output, type(None)):
+            self.output = self.map_image.copy()
+        overlay = self.output.copy()
+        for block in block_list:
+            x = block.loc.x - w / 2
+            y = block.loc.y - h / 2
+            cv2.rectangle(overlay, (int(x * self.width_ratio), int(y * self.height_ratio)),
+                      (int((x + w) * self.width_ratio), int((y + h) * self.height_ratio)), block.color, -1)
+        cv2.addWeighted(overlay, alpha, self.output, 1 - alpha, 0, self.output)
+        self.grid_layer = self.output.copy()
+
     def render_grid(self, grid_blocks, w = Constants.block_width, h = Constants.block_height):
 
         if isinstance(self.map_image, type(None)):
             self._set_map_image()
 
+        completed_blocks = []
+        incomplete_blocks = []
+
         (height, width, channel) = self.map_image.shape
         self.width_ratio = width / float(self.map_width)
         self.height_ratio = height / float(self.map_height)
         for block in grid_blocks:
-            self._draw_rect_on_map(block.loc.x, block.loc.y, w, h, 
-                block.color, 0.6 if block.completed else 0.2)
+            if block.completed:
+                completed_blocks.append(block)
+            else:
+                incomplete_blocks.append(block)
 
-    def render_points(self, point_list):
+        self._draw_rect_on_map_optimized(completed_blocks, w, h, 0.6)
+        self._draw_rect_on_map_optimized(incomplete_blocks, w, h, 0.2)
+
+    def render_points(self, point_list, range_=None, connected=False):
         """
-        point_list is List of list, containg x,y, color where color is in the form (0,0,0)
+        point_list is List of list, containing x,y, color where color is in the form (0,0,0)
         """
         (height, width, channel) = self.map_image.shape
         self.width_ratio = width / float(self.map_width)
@@ -154,8 +174,23 @@ class MapRenderer:
         if isinstance(self.output, type(None)):
             self.output = self.map_image.copy()
         for point, color in point_list:
+            if connected:
+                cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), 8,
+                           (0, 255, 0), 8)
+            cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), 5, (0, 0, 0), 4)
             cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), 3, color, 3)
+            if not isinstance(range_, type(None)):
+                cv2.circle(self.output, (int(point.x * self.width_ratio), int(point.y * self.height_ratio)), int(range_
+                           * self.width_ratio), (0, 255, 0), 1)
 
+    def draw_connection_line(self, pt1, pt2):
+        (height, width, channel) = self.map_image.shape
+        self.width_ratio = width / float(self.map_width)
+        self.height_ratio = height / float(self.map_height)
+        if isinstance(self.output, type(None)):
+            self.output = self.map_image.copy()
+        cv2.line(self.output, (int(pt1.x * self.width_ratio), int(pt1.y * self.height_ratio)),
+                 (int(pt2.x * self.width_ratio), int(pt2.y * self.height_ratio)), (0, 255, 0), 3)
 
 class Utility:
     @staticmethod
@@ -344,6 +379,8 @@ class Utility:
     @staticmethod
     def shuffle_distribution(allocations_list, drones):
 
+        n_original_allocs = sum([len(s) for s in allocations_list])
+
         for i, allocations in enumerate(allocations_list):
             Utility.set_estimated_time(allocations, drones[i])
         
@@ -370,14 +407,14 @@ class Utility:
                         #       len(sorted_allocations_list[i - 1]), len(sorted_allocations_list[i])))
                         sorted_allocations_list[i - 1] = prev_locs[:-int(num_extra_blocks / 2)]
                         curr_drone_locations = sorted_allocations_list[i]
-                        take += curr_drone_locations # keep it sorted
+                        curr_drone_locations += take # keep it sorted
                         sorted_allocations_list[i] = curr_drone_locations
                         # update allocations
                         allocations_list[i - 1] = Utility.arrange_grid(sorted_allocations_list[i - 1])
                         Utility.set_estimated_time(allocations_list[i - 1], drones[i - 1])
-                        # update colors 
-                        for block in allocations_list[i - 1]:
-                            block.color = Constants.colors[i - 1]
+                        # # update colors
+                        # for block in allocations_list[i - 1]:
+                        #     block.color = Constants.colors[i - 1]
                     else:
                         next_locs = sorted_allocations_list[i + 1]
                         num_extra_blocks = int((time_next - drone.estimated_time) // drones[i + 1].avg_time)
@@ -388,16 +425,18 @@ class Utility:
                         #       len(sorted_allocations_list[i + 1]), len(sorted_allocations_list[i])))
                         sorted_allocations_list[i + 1] = next_locs[int(num_extra_blocks / 2):]
                         curr_drone_locations = sorted_allocations_list[i]
-                        curr_drone_locations += take # keep it sorted
+                        sorted_allocations_list[i] = curr_drone_locations + take # keep it sorted
                         # update allocations
                         allocations_list[i + 1] = Utility.arrange_grid(sorted_allocations_list[i + 1])
                         Utility.set_estimated_time(allocations_list[i + 1], drones[i + 1])
-                        # update colors 
-                        for block in allocations_list[i + 1]:
-                            block.color = Constants.colors[i + 1]
+                        # # update colors
+                        # for block in allocations_list[i + 1]:
+                        #     block.color = Constants.colors[i + 1]
                     # update current drone allocations
                     allocations_list[i] = Utility.arrange_grid(sorted_allocations_list[i])
                     Utility.set_estimated_time(allocations_list[i], drones[i])
+                    n_later = sum([len(s) for s in allocations_list])
+                    z = 1
                     # update colors 
                     for block in allocations_list[i]:
                         block.color = Constants.colors[i]
@@ -412,9 +451,9 @@ class Utility:
             Constants.renderer.show()
 
         # set drone id to grid blocks
-        for i, allocations in enumerate(allocations_list):
-            for block in allocations:
-                block.drone_id = drones[i].id
+        # for i, allocations in enumerate(allocations_list):
+        #     for block in allocations:
+        #         block.drone_id = drones[i].id
 
         print("Final")
         print("{0}".format([d.estimated_time for d in drones]))
