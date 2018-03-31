@@ -58,9 +58,17 @@ class Drone:
         
         if dist > next_loc.dist(self.loc):
             self.loc = next_loc
+            if not isinstance(Constants.unity_client, type(None)):
+                send_msg = "loc {0} {1} {2} {3}|".format(self.id, self.loc.x, self.loc.y, Constants.height).encode('utf-8')
+                # send_msg = (str(len(send_msg)) + send_msg).encode('utf-8')
+                Constants.unity_client.sendall(send_msg)
             return True
         else:
             self.loc = i_loc
+            if not isinstance(Constants.unity_client, type(None)):
+                send_msg = "loc {0} {1} {2} {3}|".format(self.id, self.loc.x, self.loc.y, Constants.height).encode('utf-8')
+                #send_msg = (str(len(send_msg)) + send_msg).encode('utf-8')
+                Constants.unity_client.sendall(send_msg)
             return False
 
     def update(self, dt):
@@ -104,6 +112,11 @@ class Drone:
                                 self.path[0].estimated_time - Constants.global_sync_time))
                 # print("Remaining: {0}".format(len(self.path) - 1))
                 self.click_timer = 0
+                if not isinstance(Constants.unity_client, type(None)):
+                    send_msg = "pic {0} {1} {2}|".format(self.id, self.path[0].index[0], self.path[0].index[1]).encode(
+                        'utf-8')
+                    # send_msg = (str(len(send_msg)) + send_msg).encode('utf-8')
+                    Constants.unity_client.sendall(send_msg)
                 self.state = DroneState.CLICKING_A_PICTURE
         elif self.state == DroneState.MOVING_TO_RELAY:
             reached = self._move(dt)

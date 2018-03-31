@@ -77,7 +77,8 @@ class Constants:
     simulator = None
     relay_time = 10
     next_relay_time = relay_time
-    chat_client = None
+    unity_client = None
+    flask_client = None
 
     # Renderer
     renderer = None
