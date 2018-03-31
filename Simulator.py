@@ -15,6 +15,7 @@ class Simulator:
     def start(self):
         # init drones
         self.drones = [Drone(i) for i in range(Constants.num_drones)]
+        self.dronecpy = self.drones.copy()
 
         Constants.renderer = MapRenderer(Constants.grid_dimension.x, Constants.grid_dimension.y)
         Constants.network = NetworkLayer(self.drones, self)
@@ -35,6 +36,11 @@ class Simulator:
         self.relay_points = []
         self.near_blocks = []
         self.empty_allocations = []
+
+        self.dropped = False
+        self.relay_time = None
+
+        self.dont = False
 
         #Constants.renderer.close()
 
@@ -150,10 +156,10 @@ class Simulator:
         last_t = time.time()
         f = True
         # generate relay points
-        relay_time = Constants.relay_time
+        self.relay_time = Constants.relay_time
         try:
-            self.near_blocks, self.relay_points = self.generate_relay(relay_time)
-            self.process_relay(self.near_blocks, self.relay_points, relay_time)
+            self.near_blocks, self.relay_points = self.generate_relay(self.relay_time)
+            self.process_relay(self.near_blocks, self.relay_points, self.relay_time)
         except ValueError:
             for dr in self.drones:
                 dr.path = [GridBlock(Vector2D(-1, -1), Constants.server_loc, (0, 0, 0)), ]
@@ -169,6 +175,11 @@ class Simulator:
             self.t1 = time.time()
             Constants.global_sync_time += dt
 
+            # kill drone at 60
+            if Constants.global_sync_time > 15 and not self.dropped:
+                self.dropped = True
+                self.drones.pop(2)
+
             if f:
                 wasted_dt = time.time()
                 Constants.renderer.render_grid(self.blocks)
@@ -179,7 +190,11 @@ class Simulator:
             Constants.renderer.render_points([[r.loc, (0, 0, 0)] for r in self.near_blocks if not r is None])
             Constants.renderer.render_points([[l, (255, 255, 255)] for l in self.relay_points if not l is None])
 
-
+            # check timeout of relay
+            #print(Constants.global_sync_time - self.relay_time > Constants.relay_timeout)
+            if not self.dont:
+                if Constants.global_sync_time - self.relay_time > Constants.relay_timeout and self.dropped:
+                    self.process_drop()
 
             # update drones
             for drone in self.drones:
@@ -231,11 +246,11 @@ class Simulator:
         if Constants.global_sync_time - self.all_connected_time < 2:
             return
         # recompute relay
-        relay_time = Constants.global_sync_time + Constants.relay_time
-        Constants.next_relay_time = relay_time
+        self.relay_time = Constants.global_sync_time + Constants.relay_time
+        Constants.next_relay_time = self.relay_time
         try:
-            self.near_blocks, self.relay_points = self.generate_relay(relay_time)
-            self.process_relay(self.near_blocks, self.relay_points, relay_time)
+            self.near_blocks, self.relay_points = self.generate_relay(self.relay_time)
+            self.process_relay(self.near_blocks, self.relay_points, self.relay_time)
         except ValueError:
             for dr in self.drones:
                 dr.path = [GridBlock(Vector2D(-1, -1), Constants.server_loc, (0, 0, 0)), ]
@@ -266,3 +281,55 @@ class Simulator:
         if len(self.connected_drones) == Constants.num_drones:
             self.all_connected = True
             self.all_connected_time = Constants.global_sync_time
+            return
+
+        print("Timout in :- {}".format(Constants.global_sync_time - self.relay_time))
+        # check if timeout but not all drones connected
+        if Constants.global_sync_time - self.relay_time > Constants.relay_timeout:
+            self.process_drop()
+
+    def process_drop(self):
+        dronecpy = self.dronecpy.copy()
+        for d in self.connected_drones:
+            dronecpy.remove(d)
+        # now it has dead drones
+        for d in dronecpy:
+            #self.drones.remove(d)
+            Constants.num_drones -= 1
+        if len(self.drones) > 0:
+            # redistribute
+            # First get blocks of image points and drones
+
+            # Equally Distribute blocks in drones
+            self.allocations_list = Utility.get_grid_distribution([b for b in self.blocks if not b.completed])
+
+            # Reshuffle without considering relay time already alternated
+            self.allocations_list = Utility.shuffle_distribution(self.allocations_list, self.drones)
+
+            # color
+            for i, alloc in enumerate(self.allocations_list):
+                for b in alloc:
+                    b.color = Constants.colors[self.drones[i].id]
+
+            self.relay_time = Constants.global_sync_time + Constants.relay_time
+            Constants.next_relay_time = self.relay_time
+            try:
+                self.near_blocks, self.relay_points = self.generate_relay(self.relay_time)
+                self.process_relay(self.near_blocks, self.relay_points, self.relay_time)
+            except ValueError:
+                for dr in self.drones:
+                    dr.path = [GridBlock(Vector2D(-1, -1), Constants.server_loc, (0, 0, 0)), ]
+                    dr.state = DroneState.RTL
+                    self.relay_points = []
+                    self.near_blocks = []
+                    self.connected_drones = []
+                return
+
+            self.dronecpy = self.drones.copy()
+
+            # continue
+            for drone in self.drones:
+                if len(drone.path) > 1:
+                    drone.state = DroneState.WAITING
+
+            self.dont = True

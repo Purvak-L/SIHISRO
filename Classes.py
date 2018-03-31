@@ -78,6 +78,7 @@ class Constants:
     relay_time = 10
     next_relay_time = relay_time
     chat_client = None
+    relay_timeout = 5
 
     # Renderer
     renderer = None
@@ -438,7 +439,7 @@ class Utility:
                     z = 1
                     # update colors 
                     for block in allocations_list[i]:
-                        block.color = Constants.colors[i]
+                        block.color = Constants.colors[drone.id]
 
             # Draw
             pt_list_flattened = []
