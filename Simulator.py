@@ -176,9 +176,9 @@ class Simulator:
 
             # kill drone at 60
             if not self.dont:
-                if Constants.global_sync_time > 15 and Constants.global_sync_time < 16 and not self.dropped:
+                if Constants.global_sync_time > 20 and Constants.global_sync_time < 21 and not self.dropped:
                     self.dropped = True
-                    self.drones.pop(0)
+                    self.drones.pop(2)
 
             if f:
                 wasted_dt = time.time()
