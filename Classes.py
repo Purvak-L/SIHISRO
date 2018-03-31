@@ -55,7 +55,7 @@ class Constants:
     relay_wait_duration = 2
     velocity = 30
     drone_range = 20
-    original_num_drones = 5
+    original_num_drones = 6
     num_drones = original_num_drones
     colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255),
         (215, 220, 55), (205, 100, 155), (155, 200, 255), (233, 12, 33), (123, 45, 111)]
@@ -83,7 +83,7 @@ class Constants:
     # Renderer
     renderer = None
 
-    # enviroment
+    # environment
     network = None
 
     # Time
@@ -303,7 +303,7 @@ class Utility:
         return grid_points
 
     @staticmethod
-    def get_grid_distribution(grid_blocks):
+    def get_grid_distribution(grid_blocks, drones):
         # find max distance to get new range
         num_drones = Constants.num_drones
         distances = [x.distance_from_server for x in grid_blocks]
@@ -317,12 +317,13 @@ class Utility:
                 if (block.distance_from_server - min_dist) <= (i + 1) * mapping_range:
                     allocations[i].append(block)
                     block.allocated = True
-                    block.color = Constants.colors[i]
+                    block.color = Constants.colors[drones[i].id]
                     break
         not_allocated = [block for block in grid_blocks if not block.allocated]
 
         for block in not_allocated:
             block.allocated = True
+            block.color = Constants.colors[drones[Constants.num_drones - 1].id]
             allocations[Constants.num_drones - 1].append(block)
 
         return allocations
@@ -378,8 +379,6 @@ class Utility:
 
     @staticmethod
     def shuffle_distribution(allocations_list, drones):
-
-        n_original_allocs = sum([len(s) for s in allocations_list])
 
         for i, allocations in enumerate(allocations_list):
             Utility.set_estimated_time(allocations, drones[i])
@@ -458,22 +457,6 @@ class Utility:
         print("Final")
         print("{0}".format([d.estimated_time for d in drones]))
         return allocations_list
-
-    @staticmethod
-    def processPoints(blocks, drones = []):
-            
-        # set locations for each drone
-        for i, drone in enumerate(drone_list):
-            drone.set_locations(distribution[i+1])
-
-        # shuffle distribution for same time
-        shuffle_distribution(drone_list, gridDimension, imgWidth, imgHeight)
-
-        # Print est time for drones
-        for drone in drone_list:
-            print("Drone{0}, ETA,to,back: {1}".format(drone.id, drone.get_estimated_time()))
-        return drone_list
-
 
 class Commands:
 
